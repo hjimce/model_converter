@@ -1,5 +1,6 @@
 #include <iostream>
 #include <tiny_dnn/tiny_dnn.h>
+#include <opencv2/opencv.hpp>
 
 using namespace tiny_dnn;
 using namespace tiny_dnn::activation;
@@ -18,10 +19,12 @@ void construct_net(network<sequential> &nn)
     << convolutional_layer<relu>(4, 4, 1, 32, 32,
                                     padding::same)
     << max_pooling_layer<identity>(4, 4, 32, 2)
-    << fully_connected_layer<softmax>(120, 10);
+    << fully_connected_layer<softmax>(120, 2);
 }
+
 //加载标签文件
-void load_label_flie(std::string label_flie_path,std::vector<std::pair<std::string,int>>&image_paths){
+void load_label_flie(std::string label_flie_path,std::vector<label_t>&label,std::vector<vec_t>&images){
+    std::vector<std::pair<std::string,int>>image_paths;
     image_paths.clear();
     std::ifstream file(label_flie_path);
     std::string line;
@@ -34,8 +37,39 @@ void load_label_flie(std::string label_flie_path,std::vector<std::pair<std::stri
         image_paths.push_back(std::pair<std::string,int>(image_path,label));
     }
 
+    for(size_t i=0;i<image_paths.size();i++){
+        label.push_back(image_paths[i].second);
+        cv::Mat img = cv::imread(image_paths[i].first);
+        cv::Mat resize;
+        cv::resize(img,resize,cv::Size(39,39));
+        cv::Mat sample_float;
+        resize.convertTo(sample_float,CV_32FC3);
+        sample_float=sample_float/127.5-1;
+
+
+
+        int width=resize.cols;
+        int height=resize.rows;
+        int channels=resize.channels();
+
+        std::vector<float> inputvec(width*height*channels);
+        std::vector<cv::Mat> input_channels;
+
+        for (int i = 0; i < channels; i++)
+            input_channels.emplace_back(height, width, CV_32FC1, &inputvec[width*height*i]);
+
+        cv::split(sample_float, input_channels);
+
+
+        vec_t vec(inputvec.begin(), inputvec.end());
+        images.push_back(vec);
+
+
+    }
+
+
 }
-void load_batch(std::vector<std::pair<std::string,int>>&image_paths,int batch_size,
+/*void load_batch(std::vector<std::pair<std::string,int>>&image_paths,int batch_size,
                 std::vector<vec_t> &train_images,std::vector<label_t>& train_labels){
 //std::shuffle(image_paths.begin(),image_paths.end(),std::default_random_engine ());
     for(int i=0;i<batch_size;i++){
@@ -59,8 +93,8 @@ void train_model(const std::string &data_dir_path,
     std::cout << "load models..." << std::endl;
 
     // load MNIST dataset
-    std::vector<label_t> train_labels, test_labels;
-    std::vector<vec_t> train_images, test_images;
+     train_labels, test_labels;
+     train_images, test_images;
 
 
     std::cout << "start training" << std::endl;
@@ -98,12 +132,12 @@ void train_model(const std::string &data_dir_path,
     // save network model & trained weights
     nn.save("LeNet-model");
 }
-
+*/
 
 int main(int argc, char **argv) {
-
-    std::vector<std::pair<std::string,int>>image_paths;
-    load_label_flie("./data/train.txt",image_paths);
+    std::vector<label_t>label;
+    std::vector<vec_t>images;
+    load_label_flie("./data/train.txt",label,images);
     int nepoch=10;
     for(int i=0;i<nepoch;i++){
 
